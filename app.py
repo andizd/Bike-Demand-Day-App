@@ -14,25 +14,28 @@ st.title("🚲 Prediksi Permintaan Sepeda")
 st.write(
     """
     Aplikasi ini memprediksi **kategori permintaan penyewaan sepeda harian**
-    menggunakan **K-Means (K = 2)** dan **Logistic Regression**.
+    menggunakan:
+    - **K-Means (K = 2)** untuk clustering
+    - **Logistic Regression** untuk prediksi cluster
     
     Output:
-    - 🟢 Low Demand Day
+    - 🟢 Low Demand Day  
     - 🔴 High Demand Day
     """
 )
 
 # =========================
-# LOAD MODEL & FEATURE
+# LOAD MODEL & ARTIFACT
 # =========================
 @st.cache_resource
 def load_artifacts():
-    logreg = joblib.load("logreg_cluster_k2.pkl")
-    scaler = joblib.load("scaler_k2.pkl")
-    features = joblib.load("features_k2.pkl")
-    return logreg, scaler, features
+    kmeans = joblib.load("kmeans_bike_k2.pkl")
+    logreg = joblib.load("logreg_cluster_predictor.pkl")
+    scaler = joblib.load("scaler_bike.pkl")
+    features = joblib.load("clustering_features.pkl")
+    return kmeans, logreg, scaler, features
 
-logreg, scaler, features = load_artifacts()
+kmeans, logreg, scaler, features = load_artifacts()
 
 # =========================
 # DROPDOWN MAPPING
@@ -69,10 +72,10 @@ with col1:
     weathersit_label = st.selectbox("Kondisi Cuaca", list(weathersit_map.keys()))
 
 with col2:
-    temp = st.number_input("Suhu (temp)", min_value=0.0, max_value=1.0, value=0.3)
-    atemp = st.number_input("Suhu Terasa (atemp)", min_value=0.0, max_value=1.0, value=0.3)
-    hum = st.number_input("Kelembapan (hum)", min_value=0.0, max_value=1.0, value=0.5)
-    windspeed = st.number_input("Kecepatan Angin (windspeed)", min_value=0.0, max_value=1.0, value=0.2)
+    temp = st.number_input("Suhu (temp)", 0.0, 1.0, 0.3)
+    atemp = st.number_input("Suhu Terasa (atemp)", 0.0, 1.0, 0.3)
+    hum = st.number_input("Kelembapan (hum)", 0.0, 1.0, 0.5)
+    windspeed = st.number_input("Kecepatan Angin (windspeed)", 0.0, 1.0, 0.2)
 
 # =========================
 # KONVERSI KE DATAFRAME
@@ -87,7 +90,7 @@ input_df = pd.DataFrame([{
     "windspeed": windspeed
 }])
 
-# Pastikan urutan fitur SESUAI model
+# Pastikan urutan fitur SAMA dengan model
 input_df = input_df[features]
 
 # =========================
@@ -95,16 +98,25 @@ input_df = input_df[features]
 # =========================
 if st.button("🔍 Prediksi Permintaan"):
     X_scaled = scaler.transform(input_df)
-    prediction = logreg.predict(X_scaled)[0]
+
+    # Prediksi cluster (Logistic Regression)
+    cluster_pred = logreg.predict(X_scaled)[0]
 
     st.subheader("📊 Hasil Prediksi")
 
-    if prediction == 0:
+    if cluster_pred == 0:
         st.success("🟢 **Low Demand Day**\n\nPermintaan penyewaan sepeda relatif rendah.")
     else:
         st.error("🔴 **High Demand Day**\n\nPermintaan penyewaan sepeda relatif tinggi.")
 
-    st.markdown("### 🔎 Ringkasan Input")
+    # (Opsional) cek kedekatan ke centroid
+    centroid_pred = kmeans.predict(X_scaled)[0]
+
+    st.markdown("### 🔎 Ringkasan Teknis")
+    st.write(f"Cluster (Logistic Regression): **{cluster_pred}**")
+    st.write(f"Cluster (K-Means Centroid): **{centroid_pred}**")
+
+    st.markdown("### 📋 Data Input (Numerik)")
     st.dataframe(input_df)
 
 # =========================
