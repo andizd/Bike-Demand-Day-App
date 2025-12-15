@@ -1,10 +1,6 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
-
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
 
 # =========================
 # KONFIGURASI HALAMAN
@@ -14,125 +10,102 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("🚲 Bike Sharing Demand Prediction")
+st.title("🚲 Prediksi Permintaan Sepeda")
 st.write(
     """
-    Aplikasi ini memprediksi **kategori permintaan penyewaan sepeda**
-    (*Low Demand* atau *High Demand*)  
-    menggunakan **model K-Means (K=2)** dan **Logistic Regression**
-    hasil pelatihan di Google Colab.
+    Aplikasi ini memprediksi **kategori permintaan penyewaan sepeda harian**
+    menggunakan **K-Means (K = 2)** dan **Logistic Regression**.
+    
+    Output:
+    - 🟢 Low Demand Day
+    - 🔴 High Demand Day
     """
 )
 
 # =========================
-# LOAD MODEL & SCALER
+# LOAD MODEL & FEATURE
 # =========================
 @st.cache_resource
-def load_models():
-    kmeans = joblib.load("kmeans_bike_k2.pkl")
-    scaler = joblib.load("scaler_bike.pkl")
-    logreg = joblib.load("logreg_cluster_predictor.pkl")
-    features = joblib.load("clustering_features.pkl")
-    return kmeans, scaler, logreg, features
+def load_artifacts():
+    logreg = joblib.load("logreg_cluster_k2.pkl")
+    scaler = joblib.load("scaler_k2.pkl")
+    features = joblib.load("features_k2.pkl")
+    return logreg, scaler, features
 
-kmeans, scaler, logreg, features = load_models()
+logreg, scaler, features = load_artifacts()
 
 # =========================
-# INPUT DATA
+# DROPDOWN MAPPING
+# =========================
+holiday_map = {
+    "Bukan Libur": 0,
+    "Libur Nasional": 1
+}
+
+season_map = {
+    "Spring": 1,
+    "Summer": 2,
+    "Fall": 3,
+    "Winter": 4
+}
+
+weathersit_map = {
+    "Cerah": 1,
+    "Berawan / Berkabut": 2,
+    "Hujan ringan / Salju ringan": 3,
+    "Cuaca ekstrem": 4
+}
+
+# =========================
+# INPUT DATA MANUAL
 # =========================
 st.subheader("📥 Input Data")
 
-input_method = st.radio(
-    "Pilih metode input:",
-    ["Input Manual", "Upload CSV"]
-)
+col1, col2 = st.columns(2)
 
-# -------------------------
-# INPUT MANUAL
-# -------------------------
-if input_method == "Input Manual":
-    input_data = {}
+with col1:
+    season_label = st.selectbox("Musim", list(season_map.keys()))
+    holiday_label = st.selectbox("Hari Libur", list(holiday_map.keys()))
+    weathersit_label = st.selectbox("Kondisi Cuaca", list(weathersit_map.keys()))
 
-    for feature in features:
-        input_data[feature] = st.number_input(
-            f"Masukkan nilai {feature}",
-            value=0.0
-        )
+with col2:
+    temp = st.number_input("Suhu (temp)", min_value=0.0, max_value=1.0, value=0.3)
+    atemp = st.number_input("Suhu Terasa (atemp)", min_value=0.0, max_value=1.0, value=0.3)
+    hum = st.number_input("Kelembapan (hum)", min_value=0.0, max_value=1.0, value=0.5)
+    windspeed = st.number_input("Kecepatan Angin (windspeed)", min_value=0.0, max_value=1.0, value=0.2)
 
-    input_df = pd.DataFrame([input_data])
+# =========================
+# KONVERSI KE DATAFRAME
+# =========================
+input_df = pd.DataFrame([{
+    "season": season_map[season_label],
+    "holiday": holiday_map[holiday_label],
+    "weathersit": weathersit_map[weathersit_label],
+    "temp": temp,
+    "atemp": atemp,
+    "hum": hum,
+    "windspeed": windspeed
+}])
 
-# -------------------------
-# UPLOAD CSV
-# -------------------------
-else:
-    uploaded_file = st.file_uploader(
-        "Upload file CSV (harus mengandung kolom fitur yang sesuai)",
-        type=["csv"]
-    )
-
-    if uploaded_file is not None:
-        input_df = pd.read_csv(uploaded_file)
-        input_df = input_df[features]
-        st.dataframe(input_df.head())
-    else:
-        input_df = None
+# Pastikan urutan fitur SESUAI model
+input_df = input_df[features]
 
 # =========================
 # PREDIKSI
 # =========================
-if input_df is not None and st.button("🔍 Prediksi Demand"):
-    # Scaling
+if st.button("🔍 Prediksi Permintaan"):
     X_scaled = scaler.transform(input_df)
-
-    # Prediksi cluster
-    cluster_pred = logreg.predict(X_scaled)
-
-    # Mapping cluster ke label
-    demand_label = [
-        "🟢 Low Demand Day" if c == 0 else "🔴 High Demand Day"
-        for c in cluster_pred
-    ]
-
-    input_df["Predicted Cluster"] = cluster_pred
-    input_df["Demand Category"] = demand_label
+    prediction = logreg.predict(X_scaled)[0]
 
     st.subheader("📊 Hasil Prediksi")
+
+    if prediction == 0:
+        st.success("🟢 **Low Demand Day**\n\nPermintaan penyewaan sepeda relatif rendah.")
+    else:
+        st.error("🔴 **High Demand Day**\n\nPermintaan penyewaan sepeda relatif tinggi.")
+
+    st.markdown("### 🔎 Ringkasan Input")
     st.dataframe(input_df)
-
-    # =========================
-    # VISUALISASI PCA
-    # =========================
-    st.subheader("📈 Visualisasi PCA (Referensi Cluster)")
-
-    pca = PCA(n_components=2)
-    X_pca = pca.fit_transform(X_scaled)
-
-    centroids_pca = pca.transform(kmeans.cluster_centers_)
-
-    fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(
-        X_pca[:, 0],
-        X_pca[:, 1],
-        c=cluster_pred,
-        alpha=0.7,
-        label="Data"
-    )
-
-    ax.scatter(
-        centroids_pca[:, 0],
-        centroids_pca[:, 1],
-        c="red",
-        marker="X",
-        s=200,
-        label="Centroid"
-    )
-
-    ax.set_xlabel("Principal Component 1")
-    ax.set_ylabel("Principal Component 2")
-    ax.set_title("Prediksi Cluster dengan PCA")
-    ax.legend()
-
-    st.pyplot(fig)
 
 # =========================
 # FOOTER
