@@ -34,48 +34,6 @@ cluster_name_map = {
     3: "High Demand"
 }
 
-cluster_description = {
-    "Very Low Demand": {
-        "desc": "Permintaan sepeda sangat rendah.",
-        "characteristic": [
-            "🌡️ Suhu relatif rendah",
-            "🌧️ Cuaca kurang mendukung",
-            "💨 Aktivitas luar ruang minim"
-        ],
-        "insight": "Biasanya terjadi pada kondisi cuaca dingin atau kurang nyaman."
-    },
-
-    "Low Demand": {
-        "desc": "Permintaan sepeda rendah hingga menengah.",
-        "characteristic": [
-            "🌤️ Cuaca cukup baik",
-            "💧 Kelembapan relatif tinggi",
-            "📉 Aktivitas pengguna masih terbatas"
-        ],
-        "insight": "Permintaan mulai muncul namun belum optimal."
-    },
-
-    "Medium Demand": {
-        "desc": "Permintaan sepeda berada pada tingkat normal.",
-        "characteristic": [
-            "🌥️ Cuaca stabil",
-            "🌡️ Suhu nyaman",
-            "⚖️ Kondisi lingkungan seimbang"
-        ],
-        "insight": "Ini adalah kondisi paling umum dalam dataset."
-    },
-
-    "High Demand": {
-        "desc": "Permintaan sepeda sangat tinggi.",
-        "characteristic": [
-            "☀️ Cuaca cerah",
-            "🌡️ Suhu hangat dan nyaman",
-            "🚲 Aktivitas pengguna tinggi"
-        ],
-        "insight": "Kondisi paling ideal untuk penggunaan sepeda."
-    }
-}
-
 cluster_color_map = {
     "Very Low Demand": "🔵",
     "Low Demand": "🟢",
@@ -121,6 +79,23 @@ with col2:
     hum = st.slider("Kelembapan (normalized)", 0.0, 1.0, 0.6)
     windspeed = st.slider("Kecepatan Angin (normalized)", 0.0, 1.0, 0.3)
 
+season_text_map = {
+    1: "Spring",
+    2: "Summer",
+    3: "Fall",
+    4: "Winter"
+}
+
+weather_text_map = {
+    1: "Cerah / Berawan",
+    2: "Kabut / Mendung",
+    3: "Hujan / Salju"
+}
+
+season_text = season_text_map[season]
+weather_text = weather_text_map[weathersit]
+holiday_text = "Libur" if holiday == 1 else "Bukan Libur"
+
 if st.button("🔍 Prediksi Permintaan"):
     input_data = pd.DataFrame([[
         season,
@@ -141,17 +116,16 @@ if st.button("🔍 Prediksi Permintaan"):
     st.divider()
     st.subheader("📊 Hasil Prediksi")
 
-    st.markdown(f"## {demand_icon} **{demand_label}**")
+    st.markdown("### 📌 Kondisi yang Anda masukkan")
 
-    info = cluster_description[demand_label]
-
-    st.markdown(f"**Deskripsi:** {info['desc']}")
-
-    st.markdown("**Karakteristik utama:**")
-    for item in info["characteristic"]:
-        st.markdown(f"- {item}")
-
-    st.info(f"💡 **Insight:** {info['insight']}")
+    st.markdown(f"""
+    - 🗓️ **Musim**: {season_text}  
+    - 🎉 **Hari**: {holiday_text}  
+    - 🌦️ **Cuaca**: {weather_text}  
+    - 🌡️ **Suhu**: {temp:.2f}  
+    - 💧 **Kelembapan**: {hum:.2f}  
+    - 💨 **Kecepatan Angin**: {windspeed:.2f}  
+    """)
 
 
 st.divider()
