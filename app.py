@@ -152,11 +152,6 @@ if st.button("🔍 Prediksi Permintaan"):
     info = cluster_description[demand_label]
 
     st.markdown(f"**Deskripsi:** {info['desc']}")
-
-    st.markdown("**Karakteristik utama:**")
-    for item in info["characteristic"]:
-        st.markdown(f"- {item}")
-
     st.info(f"💡 **Insight:** {info['insight']}")
 
 
