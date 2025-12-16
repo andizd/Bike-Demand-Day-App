@@ -1,129 +1,117 @@
 import streamlit as st
-import pandas as pd
+import numpy as np
 import joblib
+import pandas as pd
 
-# =========================
-# KONFIGURASI HALAMAN
-# =========================
 st.set_page_config(
-    page_title="Bike Sharing Demand Prediction",
+    page_title="Prediksi Permintaan Sepeda",
+    page_icon="🚲",
     layout="centered"
 )
 
-st.title("🚲 Prediksi Permintaan Sepeda")
+st.title("🚲 Prediksi Tingkat Permintaan Sepeda")
 st.write(
-    """
-    Aplikasi ini memprediksi **kategori permintaan penyewaan sepeda harian**
-    menggunakan:
-    - **K-Means (K = 2)** untuk clustering
-    - **Logistic Regression** untuk prediksi cluster
-    
-    Output:
-    - 🟢 Low Demand Day  
-    - 🔴 High Demand Day
-    """
+    "Aplikasi ini memprediksi **tingkat permintaan sepeda** "
+    "berdasarkan **kondisi cuaca dan hari**, "
+    "menggunakan **Machine Learning (Logistic Regression)**."
 )
 
-# =========================
-# LOAD MODEL & ARTIFACT
-# =========================
+st.divider()
+
 @st.cache_resource
-def load_artifacts():
-    kmeans = joblib.load("kmeans_bike_k2.pkl")
-    logreg = joblib.load("logreg_cluster_predictor.pkl")
-    scaler = joblib.load("scaler_bike.pkl")
-    features = joblib.load("clustering_features.pkl")
-    return kmeans, logreg, scaler, features
+def load_model():
+    model = joblib.load("logreg_demand_model.joblib")
+    scaler = joblib.load("logreg_scaler.joblib")
+    features = joblib.load("logreg_features.joblib")
+    return model, scaler, features
 
-kmeans, logreg, scaler, features = load_artifacts()
+model, scaler, features = load_model()
 
-# =========================
-# DROPDOWN MAPPING
-# =========================
-holiday_map = {
-    "Bukan Libur": 0,
-    "Libur Nasional": 1
+cluster_name_map = {
+    0: "Very Low Demand",
+    1: "Low Demand",
+    2: "Medium Demand",
+    3: "High Demand"
 }
 
-season_map = {
-    "Spring": 1,
-    "Summer": 2,
-    "Fall": 3,
-    "Winter": 4
+cluster_color_map = {
+    "Very Low Demand": "🔵",
+    "Low Demand": "🟢",
+    "Medium Demand": "🟠",
+    "High Demand": "🔴"
 }
 
-weathersit_map = {
-    "Cerah": 1,
-    "Berawan / Berkabut": 2,
-    "Hujan ringan / Salju ringan": 3,
-    "Cuaca ekstrem": 4
-}
-
-# =========================
-# INPUT DATA MANUAL
-# =========================
-st.subheader("📥 Input Data")
+st.subheader("🔧 Masukkan Kondisi Lingkungan")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    season_label = st.selectbox("Musim", list(season_map.keys()))
-    holiday_label = st.selectbox("Hari Libur", list(holiday_map.keys()))
-    weathersit_label = st.selectbox("Kondisi Cuaca", list(weathersit_map.keys()))
+    season = st.selectbox(
+        "Musim",
+        options=[1, 2, 3, 4],
+        format_func=lambda x: {
+            1: "Spring",
+            2: "Summer",
+            3: "Fall",
+            4: "Winter"
+        }[x]
+    )
+
+    holiday = st.selectbox(
+        "Hari Libur",
+        options=[0, 1],
+        format_func=lambda x: "Libur" if x == 1 else "Bukan Libur"
+    )
+
+    weathersit = st.selectbox(
+        "Kondisi Cuaca",
+        options=[1, 2, 3],
+        format_func=lambda x: {
+            1: "Cerah / Berawan",
+            2: "Kabut / Mendung",
+            3: "Hujan / Salju"
+        }[x]
+    )
 
 with col2:
-    temp = st.number_input("Suhu (temp)", 0.0, 1.0, 0.3)
-    atemp = st.number_input("Suhu Terasa (atemp)", 0.0, 1.0, 0.3)
-    hum = st.number_input("Kelembapan (hum)", 0.0, 1.0, 0.5)
-    windspeed = st.number_input("Kecepatan Angin (windspeed)", 0.0, 1.0, 0.2)
+    temp = st.slider("Suhu (normalized)", 0.0, 1.0, 0.5)
+    atemp = st.slider("Suhu Terasa (normalized)", 0.0, 1.0, 0.5)
+    hum = st.slider("Kelembapan (normalized)", 0.0, 1.0, 0.6)
+    windspeed = st.slider("Kecepatan Angin (normalized)", 0.0, 1.0, 0.3)
 
-# =========================
-# KONVERSI KE DATAFRAME
-# =========================
-input_df = pd.DataFrame([{
-    "season": season_map[season_label],
-    "holiday": holiday_map[holiday_label],
-    "weathersit": weathersit_map[weathersit_label],
-    "temp": temp,
-    "atemp": atemp,
-    "hum": hum,
-    "windspeed": windspeed
-}])
-
-# Pastikan urutan fitur SAMA dengan model
-input_df = input_df[features]
-
-# =========================
-# PREDIKSI
-# =========================
 if st.button("🔍 Prediksi Permintaan"):
-    X_scaled = scaler.transform(input_df)
+    input_data = pd.DataFrame([[
+        season,
+        holiday,
+        weathersit,
+        temp,
+        atemp,
+        hum,
+        windspeed
+    ]], columns=features)
 
-    # Prediksi cluster (Logistic Regression)
-    cluster_pred = logreg.predict(X_scaled)[0]
+    input_scaled = scaler.transform(input_data)
+    prediction = model.predict(input_scaled)[0]
 
+    demand_label = cluster_name_map[prediction]
+    demand_icon = cluster_color_map[demand_label]
+
+    st.divider()
     st.subheader("📊 Hasil Prediksi")
 
-    if cluster_pred == 0:
-        st.success("🟢 **Low Demand Day**\n\nPermintaan penyewaan sepeda relatif rendah.")
-    else:
-        st.error("🔴 **High Demand Day**\n\nPermintaan penyewaan sepeda relatif tinggi.")
+    st.markdown(
+        f"""
+        ### {demand_icon} **{demand_label}**
+        """
+    )
 
-    # (Opsional) cek kedekatan ke centroid
-    centroid_pred = kmeans.predict(X_scaled)[0]
+    st.info(
+        "Prediksi ini didasarkan pada pola permintaan sepeda "
+        "yang dipelajari dari hasil clustering dan kondisi cuaca."
+    )
 
-    st.markdown("### 🔎 Ringkasan Teknis")
-    st.write(f"Cluster (Logistic Regression): **{cluster_pred}**")
-    st.write(f"Cluster (K-Means Centroid): **{centroid_pred}**")
-
-    st.markdown("### 📋 Data Input (Numerik)")
-    st.dataframe(input_df)
-
-# =========================
-# FOOTER
-# =========================
-st.markdown("---")
+st.divider()
 st.caption(
-    "Model: K-Means (K=2) + Logistic Regression | "
-    "Dataset: Bike Sharing (day.csv)"
+    "Model: Logistic Regression | Dataset: Bike Sharing | "
+    "Metode: Clustering + Classification"
 )
