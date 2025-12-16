@@ -34,6 +34,28 @@ cluster_name_map = {
     3: "High Demand"
 }
 
+cluster_description = {
+    "Very Low Demand": {
+        "desc": "Permintaan sepeda sangat rendah.",
+        "insight": "Biasanya terjadi pada kondisi cuaca dingin atau kurang nyaman."
+    },
+
+    "Low Demand": {
+        "desc": "Permintaan sepeda rendah hingga menengah.",
+        "insight": "Permintaan mulai muncul namun belum optimal."
+    },
+
+    "Medium Demand": {
+        "desc": "Permintaan sepeda berada pada tingkat normal.",
+        "insight": "Ini adalah kondisi paling umum dalam dataset."
+    },
+
+    "High Demand": {
+        "desc": "Permintaan sepeda sangat tinggi.",
+        "insight": "Kondisi paling ideal untuk penggunaan sepeda."
+    }
+}
+
 cluster_color_map = {
     "Very Low Demand": "🔵",
     "Low Demand": "🟢",
@@ -127,11 +149,16 @@ if st.button("🔍 Prediksi Permintaan"):
     - 💨 **Kecepatan Angin**: {windspeed:.2f}  
     """)
 
-    st.markdown(
-        f"""
-        ### {demand_icon} **{demand_label}**
-        """
-    )
+    info = cluster_description[demand_label]
+
+    st.markdown(f"**Deskripsi:** {info['desc']}")
+
+    st.markdown("**Karakteristik utama:**")
+    for item in info["characteristic"]:
+        st.markdown(f"- {item}")
+
+    st.info(f"💡 **Insight:** {info['insight']}")
+
 
 st.divider()
 st.caption(
