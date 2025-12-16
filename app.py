@@ -127,7 +127,11 @@ if st.button("🔍 Prediksi Permintaan"):
     - 💨 **Kecepatan Angin**: {windspeed:.2f}  
     """)
 
-    info = cluster_description[demand_label]
+    st.markdown(
+        f"""
+        ### {demand_icon} **{demand_label}**
+        """
+    )
 
 st.divider()
 st.caption(
